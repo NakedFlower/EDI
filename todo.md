@@ -1,0 +1,40 @@
+# Project TODO
+
+- [x] Theme configuration (brand colors, dark mode)
+- [x] Tab navigation setup (Vault, Community, Profile)
+- [x] Icon mappings for all tabs
+- [x] Database schema (ideas, comments, AI conversations, idea history)
+- [x] Server routers (ideas CRUD, AI coach, community, comments)
+- [x] Home screen (My Vault) with idea cards list
+- [x] New Idea form screen
+- [x] Idea Detail screen with all fields
+- [x] Edit idea functionality
+- [x] Delete idea with confirmation
+- [x] AI Coach Chat screen with conversation UI
+- [x] AI Coach server-side LLM integration (Socratic coaching)
+- [x] Community Feed screen (public ideas)
+- [x] Idea Discussion screen with comments
+- [x] Privacy mode toggle (Private/Public)
+- [x] Development History timeline screen
+- [x] Idea history tracking (edits + AI sessions)
+- [x] Profile / Settings screen
+- [x] User authentication (login/logout)
+- [x] Search/filter ideas on Home screen
+- [x] Empty states for all screens
+- [x] App logo and branding
+- [x] 전체 UI 한국어 번역 (모든 화면)
+- [x] 버그 수정: 아이디어 수정 시 Public이 자동으로 Private으로 변경되는 문제
+- [x] 수정 화면에서 Public/Private 상태도 변경 가능하도록
+- [x] 공개 아이디어에 댓글 달리면 아이디어 소유자 Vault에서 알림 표시
+- [x] 프로필 화면 Sign Out UX 개선 (우측 상단 아이콘 + 확인 다이얼로그)
+- [x] "개발 히스토리" → "아이디어 현황" 텍스트 전체 변경
+- [x] 창고(홈) 아이디어 카드에 "댓글 보기" 버튼 추가 → 커뮤니티 해당 게시글로 라우팅
+- [x] 로그아웃 버튼 동작 수정
+- [x] Expo Go OAuth 로그인 redirect_uri 스킴 오류 수정
+- [x] AI 멘토 채팅 입력창 키보드 대응 UX 수정 (KeyboardAvoidingView)
+- [x] 커뮤니티 댓글 입력창 키보드 대응 UX 수정
+- [x] 프로필 화면 중앙 로그아웃 버튼 제거 (우측 상단 아이콘만 유지)
+- [x] 탭 화면 좌측 상단 제목 위쪽 패딩 추가
+- [x] "코치" → "멘토" 전체 변경 + AI 멘토 안내 문구 수정
+- [x] 앱 이름 "EDI"로 변경 (Explore, Develop, Improve your ideas)
+- [x] EDI 앱 로고 생성 및 브랜딩 업데이트
