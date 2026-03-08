@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Alert,
+  Keyboard,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -41,6 +42,7 @@ export default function DiscussionScreen() {
     onSuccess: () => {
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setCommentText("");
+      Keyboard.dismiss();
       refetchComments();
     },
     onError: (err) => Alert.alert("오류", err.message),

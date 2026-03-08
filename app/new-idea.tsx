@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { ScreenContainer } from "@/components/screen-container";
@@ -20,6 +21,7 @@ import { trpc } from "@/lib/trpc";
 
 export default function NewIdeaScreen() {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [problem, setProblem] = useState("");
@@ -89,11 +91,14 @@ export default function NewIdeaScreen() {
     </View>
   );
 
+  const formBottomPadding = Math.max(insets.bottom, 12) + 28;
+
   return (
     <ScreenContainer edges={["top", "left", "right"]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
       >
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
@@ -123,7 +128,7 @@ export default function NewIdeaScreen() {
         </View>
 
         <ScrollView
-          contentContainerStyle={styles.formContent}
+          contentContainerStyle={[styles.formContent, { paddingBottom: formBottomPadding }]}
           keyboardShouldPersistTaps="handled"
         >
           {renderField("제목 *", title, setTitle, "어떤 아이디어인가요?", false)}
@@ -213,7 +218,6 @@ const styles = StyleSheet.create({
   },
   formContent: {
     padding: 16,
-    paddingBottom: 40,
     gap: 20,
   },
   fieldContainer: {

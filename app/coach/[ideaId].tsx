@@ -175,9 +175,7 @@ export default function MentorScreen() {
               <IconSymbol name="sparkles" size={36} color={colors.accent} />
             </View>
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>대화를 시작하세요</Text>
-            <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-              AI 멘토에게 아이디어에 대해 설명해보세요.{"\n"}멘토가 질문을 통해 아이디어를 발전시키도록 도와줍니다.
-            </Text>
+            <Text style={[styles.emptySubtitle, { color: colors.muted }]}>AI 멘토에게 아이디어에 대해 설명해보세요</Text>
           </View>
         ) : (
           <FlatList
@@ -219,7 +217,7 @@ export default function MentorScreen() {
               styles.input,
               { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground },
             ]}
-            placeholder="멘토에게 아이디어를 설명해보세요..."
+            placeholder="AI 멘토에게 아이디어에 대해 설명해보세요"
             placeholderTextColor={colors.muted}
             value={inputText}
             onChangeText={setInputText}
