@@ -1,5 +1,6 @@
 import { eq, desc, and, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import {
   InsertUser,
   users,
@@ -17,15 +18,21 @@ import {
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _pool: Pool | null = null;
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        max: 1,
+      });
+      _db = drizzle(_pool);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
+      _pool = null;
     }
   }
   return _db;
@@ -80,8 +87,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     if (Object.keys(updateSet).length === 0) {
       updateSet.lastSignedIn = new Date();
     }
+    updateSet.updatedAt = new Date();
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
+    await db.insert(users).values(values).onConflictDoUpdate({
+      target: users.openId,
       set: updateSet,
     });
   } catch (error) {
@@ -120,14 +129,20 @@ export async function getIdeaById(ideaId: number) {
 export async function createIdea(data: InsertIdea) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const [result] = await db.insert(ideas).values(data).$returningId();
+  const [result] = await db.insert(ideas).values(data).returning({ id: ideas.id });
   return result.id;
 }
 
 export async function updateIdea(id: number, data: Partial<InsertIdea>) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(ideas).set(data).where(eq(ideas.id, id));
+  await db
+    .update(ideas)
+    .set({
+      ...data,
+      updatedAt: new Date(),
+    })
+    .where(eq(ideas.id, id));
 }
 
 export async function deleteIdea(id: number) {
@@ -179,7 +194,10 @@ export async function getOrCreateConversation(ideaId: number, userId: number) {
     .orderBy(desc(conversations.updatedAt))
     .limit(1);
   if (existing.length > 0) return existing[0];
-  const [result] = await db.insert(conversations).values({ ideaId, userId }).$returningId();
+  const [result] = await db
+    .insert(conversations)
+    .values({ ideaId, userId })
+    .returning({ id: conversations.id });
   const created = await db.select().from(conversations).where(eq(conversations.id, result.id)).limit(1);
   return created[0];
 }
@@ -193,7 +211,7 @@ export async function getConversationMessages(conversationId: number) {
 export async function addMessage(data: InsertMessage) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const [result] = await db.insert(messages).values(data).$returningId();
+  const [result] = await db.insert(messages).values(data).returning({ id: messages.id });
   await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, data.conversationId));
   return result.id;
 }
@@ -221,7 +239,7 @@ export async function getIdeaComments(ideaId: number) {
 export async function addComment(data: InsertComment) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const [result] = await db.insert(comments).values(data).$returningId();
+  const [result] = await db.insert(comments).values(data).returning({ id: comments.id });
   return result.id;
 }
 
@@ -236,7 +254,7 @@ export async function getIdeaHistory(ideaId: number) {
 export async function addIdeaHistory(data: InsertIdeaHistory) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const [result] = await db.insert(ideaHistory).values(data).$returningId();
+  const [result] = await db.insert(ideaHistory).values(data).returning({ id: ideaHistory.id });
   return result.id;
 }
 
