@@ -153,8 +153,11 @@ describe("Korean Localization - UI", () => {
   it("should have Korean text on login screen", async () => {
     const fs = await import("fs");
     const login = fs.readFileSync("app/login.tsx", "utf-8");
-    expect(login).toContain("로그인");
-    expect(login).toContain("비즈니스 아이디어를 기록하고");
+    expect(login).toContain("로그인 방식 선택");
+    expect(login).toContain("Google로 로그인");
+    expect(login).toContain("Naver로 로그인");
+    expect(login).toContain("Kakao로 로그인");
+    expect(login).toContain("일반 로그인");
     expect(login).toContain("돌아가기");
   });
 });

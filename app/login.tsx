@@ -1,46 +1,85 @@
-import { Text, View, Pressable, StyleSheet } from "react-native";
+import { Text, View, Pressable, StyleSheet, Platform } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { startOAuthLogin } from "@/constants/oauth";
+import { startOAuthLogin, type LoginMethod } from "@/constants/oauth";
 import * as Haptics from "expo-haptics";
-import { Platform } from "react-native";
 import { router } from "expo-router";
 
 export default function LoginScreen() {
   const colors = useColors();
 
-  const handleLogin = async () => {
+  const handleLogin = async (method: LoginMethod) => {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    await startOAuthLogin();
+    await startOAuthLogin(method);
   };
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} className="px-6">
       <View style={styles.container}>
-        <View style={styles.hero}>
-          <View style={[styles.iconCircle, { backgroundColor: colors.primary + "15" }]}>
-            <IconSymbol name="lightbulb.fill" size={48} color={colors.primary} />
-          </View>
-          <Text style={[styles.title, { color: colors.foreground }]}>EDI</Text>
-          <Text style={[styles.tagline, { color: colors.accent }]}>Explore, Develop, Improve</Text>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.foreground }]}>로그인 방식 선택</Text>
           <Text style={[styles.subtitle, { color: colors.muted }]}>
-            비즈니스 아이디어를 기록하고{"\n"}AI 멘토와 함께 발전시키세요
+            원하는 로그인 방법을 선택해 계속 진행하세요
           </Text>
         </View>
 
-        <View style={styles.actions}>
+        <View style={styles.methodList}>
           <Pressable
-            onPress={handleLogin}
+            onPress={() => handleLogin("google")}
             style={({ pressed }) => [
-              styles.loginButton,
-              { backgroundColor: colors.primary },
+              styles.methodButton,
+              { backgroundColor: colors.surface, borderColor: colors.border },
               pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 },
             ]}
           >
-            <Text style={styles.loginButtonText}>로그인</Text>
+            <View style={styles.methodContent}>
+              <Text style={[styles.methodTitle, { color: colors.foreground }]}>Google로 로그인</Text>
+              <Text style={[styles.methodCaption, { color: colors.muted }]}>구글 계정으로 빠르게 시작</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => handleLogin("naver")}
+            style={({ pressed }) => [
+              styles.methodButton,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 },
+            ]}
+          >
+            <View style={styles.methodContent}>
+              <Text style={[styles.methodTitle, { color: colors.foreground }]}>Naver로 로그인</Text>
+              <Text style={[styles.methodCaption, { color: colors.muted }]}>네이버 계정으로 로그인</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => handleLogin("kakao")}
+            style={({ pressed }) => [
+              styles.methodButton,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 },
+            ]}
+          >
+            <View style={styles.methodContent}>
+              <Text style={[styles.methodTitle, { color: colors.foreground }]}>Kakao로 로그인</Text>
+              <Text style={[styles.methodCaption, { color: colors.muted }]}>카카오 계정으로 로그인</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => handleLogin("email")}
+            style={({ pressed }) => [
+              styles.methodButton,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+              pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 },
+            ]}
+          >
+            <View style={styles.methodContent}>
+              <Text style={[styles.methodTitle, { color: colors.foreground }]}>일반 로그인</Text>
+              <Text style={[styles.methodCaption, { color: colors.muted }]}>이메일/비밀번호로 로그인</Text>
+            </View>
           </Pressable>
 
           <Pressable
@@ -58,59 +97,47 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 48,
+    justifyContent: "space-between",
+    paddingVertical: 36,
+    gap: 24,
   },
-  hero: {
-    alignItems: "center",
-    gap: 16,
-  },
-  iconCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
+  header: {
+    alignItems: "flex-start",
+    gap: 8,
   },
   title: {
-    fontSize: 36,
+    fontSize: 30,
     fontWeight: "800",
-    letterSpacing: -1,
-  },
-  tagline: {
-    fontSize: 13,
-    fontWeight: "500",
-    letterSpacing: 0.5,
-    marginTop: -8,
+    letterSpacing: -0.6,
   },
   subtitle: {
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 24,
-    maxWidth: 280,
+    fontSize: 15,
+    lineHeight: 22,
   },
-  actions: {
-    alignItems: "center",
-    gap: 16,
+  methodList: {
+    gap: 12,
     width: "100%",
-    paddingHorizontal: 24,
   },
-  loginButton: {
+  methodButton: {
     width: "100%",
-    maxWidth: 320,
-    paddingVertical: 16,
+    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: 14,
-    alignItems: "center",
   },
-  loginButtonText: {
-    color: "#FFFFFF",
+  methodContent: {
+    gap: 2,
+  },
+  methodTitle: {
     fontSize: 17,
     fontWeight: "600",
   },
+  methodCaption: {
+    fontSize: 13,
+  },
   backText: {
     fontSize: 15,
-    marginTop: 4,
+    textAlign: "center",
+    marginTop: 8,
   },
 });

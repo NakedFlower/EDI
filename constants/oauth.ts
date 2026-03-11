@@ -52,6 +52,7 @@ export function getApiBaseUrl(): string {
 
 export const SESSION_TOKEN_KEY = "app_session_token";
 export const USER_INFO_KEY = "manus-runtime-user-info";
+export type LoginMethod = "google" | "naver" | "kakao" | "email";
 
 const encodeState = (value: string) => {
   if (typeof globalThis.btoa === "function") {
@@ -97,7 +98,7 @@ export const getRedirectUri = () => {
   });
 };
 
-export const getLoginUrl = () => {
+export const getLoginUrl = (method?: LoginMethod) => {
   const redirectUri = getRedirectUri();
   const state = encodeState(redirectUri);
 
@@ -106,6 +107,9 @@ export const getLoginUrl = () => {
   url.searchParams.set("redirectUri", redirectUri);
   url.searchParams.set("state", state);
   url.searchParams.set("type", "signIn");
+  if (method) {
+    url.searchParams.set("provider", method);
+  }
 
   return url.toString();
 };
@@ -120,8 +124,8 @@ export const getLoginUrl = () => {
  *
  * @returns Always null, the callback is handled via deep link.
  */
-export async function startOAuthLogin(): Promise<string | null> {
-  const loginUrl = getLoginUrl();
+export async function startOAuthLogin(method?: LoginMethod): Promise<string | null> {
+  const loginUrl = getLoginUrl(method);
 
   if (ReactNative.Platform.OS === "web") {
     // On web, just redirect

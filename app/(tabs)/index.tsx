@@ -97,7 +97,7 @@ export default function HomeScreen() {
             EDI에 오신 것을 환영합니다
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-            로그인하고 비즈니스 아이디어를 기록하고 발전시켜 보세요
+            비즈니스 아이디어를 기록하고 발전시켜 보세요
           </Text>
           <Pressable
             onPress={() => router.push("/login")}

@@ -50,7 +50,7 @@ export default function CommunityScreen() {
           </View>
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>커뮤니티</Text>
           <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-            로그인하고 커뮤니티의 공개 아이디어를 탐색하고 토론해 보세요
+            커뮤니티의 공개 아이디어를 탐색하고 토론해 보세요
           </Text>
           <Pressable
             onPress={() => router.push("/login")}
