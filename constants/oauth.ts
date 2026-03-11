@@ -54,6 +54,18 @@ export const SESSION_TOKEN_KEY = "app_session_token";
 export const USER_INFO_KEY = "manus-runtime-user-info";
 export type LoginMethod = "google" | "naver" | "kakao" | "email";
 
+function getWebOAuthStartUrl(method?: LoginMethod): string {
+  const baseUrl = getApiBaseUrl();
+  const url =
+    typeof window !== "undefined"
+      ? new URL("/api/oauth/start", baseUrl || window.location.origin)
+      : new URL("/api/oauth/start", baseUrl || "http://localhost:3000");
+  if (method) {
+    url.searchParams.set("provider", method);
+  }
+  return url.toString();
+}
+
 const encodeState = (value: string) => {
   if (typeof globalThis.btoa === "function") {
     return globalThis.btoa(value);
@@ -99,6 +111,9 @@ export const getRedirectUri = () => {
 };
 
 export const getLoginUrl = (method?: LoginMethod) => {
+  if (!OAUTH_PORTAL_URL || !APP_ID) {
+    throw new Error("Missing OAuth config: EXPO_PUBLIC_OAUTH_PORTAL_URL or EXPO_PUBLIC_APP_ID");
+  }
   const redirectUri = getRedirectUri();
   const state = encodeState(redirectUri);
 
@@ -125,13 +140,23 @@ export const getLoginUrl = (method?: LoginMethod) => {
  * @returns Always null, the callback is handled via deep link.
  */
 export async function startOAuthLogin(method?: LoginMethod): Promise<string | null> {
-  const loginUrl = getLoginUrl(method);
-
   if (ReactNative.Platform.OS === "web") {
-    // On web, just redirect
-    if (typeof window !== "undefined") {
-      window.location.href = loginUrl;
+    try {
+      const loginUrl = getWebOAuthStartUrl(method);
+      if (typeof window !== "undefined") {
+        window.location.href = loginUrl;
+      }
+    } catch (error) {
+      console.error("[OAuth] Failed to build web login URL:", error);
     }
+    return null;
+  }
+
+  let loginUrl = "";
+  try {
+    loginUrl = getLoginUrl(method);
+  } catch (error) {
+    console.error("[OAuth] Missing native OAuth config:", error);
     return null;
   }
 

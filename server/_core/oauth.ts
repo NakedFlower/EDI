@@ -3,6 +3,7 @@ import type { Express, Request, Response } from "express";
 import { getUserByOpenId, upsertUser } from "../db";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
+import { ENV } from "./env";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -61,7 +62,38 @@ function buildUserResponse(
   };
 }
 
+function buildOAuthStartUrl(req: Request, provider?: string): string {
+  if (!ENV.oAuthPortalUrl || !ENV.appId) {
+    throw new Error("Missing OAuth config: VITE_OAUTH_PORTAL_URL/EXPO_PUBLIC_OAUTH_PORTAL_URL or VITE_APP_ID/EXPO_PUBLIC_APP_ID");
+  }
+
+  const origin = `${req.protocol}://${req.get("host")}`;
+  const redirectUri = `${origin}/api/oauth/callback`;
+  const state = Buffer.from(redirectUri, "utf-8").toString("base64");
+
+  const url = new URL(`${ENV.oAuthPortalUrl}/app-auth`);
+  url.searchParams.set("appId", ENV.appId);
+  url.searchParams.set("redirectUri", redirectUri);
+  url.searchParams.set("state", state);
+  url.searchParams.set("type", "signIn");
+  if (provider) {
+    url.searchParams.set("provider", provider);
+  }
+  return url.toString();
+}
+
 export function registerOAuthRoutes(app: Express) {
+  app.get("/api/oauth/start", (req: Request, res: Response) => {
+    try {
+      const provider = getQueryParam(req, "provider");
+      const loginUrl = buildOAuthStartUrl(req, provider);
+      res.redirect(302, loginUrl);
+    } catch (error) {
+      console.error("[OAuth] Start failed", error);
+      res.status(500).json({ error: "OAuth start failed" });
+    }
+  });
+
   // Web OAuth callback - redirects to frontend with cookie
   app.get("/api/oauth/callback", async (req: Request, res: Response) => {
     const code = getQueryParam(req, "code");
