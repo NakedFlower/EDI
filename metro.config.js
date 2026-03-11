@@ -13,5 +13,5 @@ module.exports = withNativeWind(config, {
   //forceWriteFileSystem: true,
 
   // 웹 테스트에서는 CSS 파일을 가상 모듈로 처리하여 웹에서 스타일링이 제대로 작동하도록 합니다.
-  forceWriteFileSystem: !isWeb,
+  forceWriteFileSystem: false,
 });
