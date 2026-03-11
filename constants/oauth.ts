@@ -55,15 +55,7 @@ export const USER_INFO_KEY = "manus-runtime-user-info";
 export type LoginMethod = "google" | "naver" | "kakao" | "email";
 
 function getWebOAuthStartUrl(method?: LoginMethod): string {
-  const baseUrl = getApiBaseUrl();
-  const url =
-    typeof window !== "undefined"
-      ? new URL("/api/oauth/start", baseUrl || window.location.origin)
-      : new URL("/api/oauth/start", baseUrl || "http://localhost:3000");
-  if (method) {
-    url.searchParams.set("provider", method);
-  }
-  return url.toString();
+  return getLoginUrl(method);
 }
 
 const encodeState = (value: string) => {
@@ -95,7 +87,10 @@ function isExpoGo(): boolean {
  */
 export const getRedirectUri = () => {
   if (ReactNative.Platform.OS === "web") {
-    return `${getApiBaseUrl()}/api/oauth/callback`;
+    if (typeof window !== "undefined" && window.location?.origin) {
+      return `${window.location.origin}/oauth/callback`;
+    }
+    return "http://localhost:8081/oauth/callback";
   }
 
   // In Expo Go, custom schemes don't work - use HTTPS server callback instead
