@@ -31,9 +31,33 @@ export const API_BASE_URL = env.apiBaseUrl;
  * URL pattern: https://PORT-sandboxid.region.domain
  */
 export function getApiBaseUrl(): string {
-  // If API_BASE_URL is set, use it
+  const normalize = (value: string) => value.replace(/\/$/, "");
+
+  // If API_BASE_URL is set, use it unless it points to current web origin.
   if (API_BASE_URL) {
-    return API_BASE_URL.replace(/\/$/, "");
+    const configured = normalize(API_BASE_URL);
+
+    if (ReactNative.Platform.OS === "web" && typeof window !== "undefined" && window.location) {
+      const currentOrigin = normalize(window.location.origin);
+      if (configured === currentOrigin) {
+        if (OAUTH_SERVER_URL) {
+          return normalize(OAUTH_SERVER_URL);
+        }
+        if (OAUTH_PORTAL_URL) {
+          return normalize(OAUTH_PORTAL_URL);
+        }
+      }
+    }
+
+    return configured;
+  }
+
+  if (OAUTH_SERVER_URL) {
+    return normalize(OAUTH_SERVER_URL);
+  }
+
+  if (OAUTH_PORTAL_URL) {
+    return normalize(OAUTH_PORTAL_URL);
   }
 
   // On web, derive from current hostname by replacing port 8081 with 3000

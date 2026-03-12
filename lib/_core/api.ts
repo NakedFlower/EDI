@@ -78,8 +78,15 @@ export async function apiCall<T>(endpoint: string, options: RequestInit = {}): P
     }
 
     const text = await response.text();
-    console.log("[API] Text response received");
-    return (text ? JSON.parse(text) : {}) as T;
+    console.log("[API] Non-JSON response received", {
+      endpoint,
+      contentType,
+      preview: text.slice(0, 120),
+    });
+    throw new Error(
+      `Expected JSON but got ${contentType || "unknown content type"} from ${url}. ` +
+        "Check EXPO_PUBLIC_API_BASE_URL / EXPO_PUBLIC_OAUTH_SERVER_URL.",
+    );
   } catch (error) {
     console.error("[API] Request failed:", error);
     if (error instanceof Error) {
