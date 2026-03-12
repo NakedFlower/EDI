@@ -1,6 +1,7 @@
 import type { CookieOptions, Request } from "express";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const DISALLOWED_PARENT_COOKIE_DOMAINS = new Set(["vercel.app", "now.sh"]);
 
 function isIpAddress(host: string) {
   // Basic IPv4 check and IPv6 presence detection.
@@ -32,6 +33,13 @@ function getParentDomain(hostname: string): string | undefined {
 
   // Split hostname into parts
   const parts = hostname.split(".");
+  const registrableRoot = parts.slice(-2).join(".");
+
+  // Some hosting domains are public suffix-like and reject parent-domain cookies.
+  // Example: setting "Domain=.vercel.app" is ignored by browsers.
+  if (DISALLOWED_PARENT_COOKIE_DOMAINS.has(registrableRoot)) {
+    return undefined;
+  }
 
   // Need at least 3 parts for a subdomain (e.g., "3000-xxx.manuspre.computer")
   // For "manuspre.computer", we can't set a parent domain
@@ -41,7 +49,7 @@ function getParentDomain(hostname: string): string | undefined {
 
   // Return parent domain with leading dot (e.g., ".manuspre.computer")
   // This allows cookie to be shared across all subdomains
-  return "." + parts.slice(-2).join(".");
+  return "." + registrableRoot;
 }
 
 export function getSessionCookieOptions(
