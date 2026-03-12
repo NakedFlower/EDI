@@ -104,6 +104,8 @@ function isExpoGo(): boolean {
  */
 export const getRedirectUri = () => {
   if (ReactNative.Platform.OS === "web") {
+    // For web, we need to use the frontend callback route
+    // The OAuth flow will be: Portal -> Frontend /oauth/callback -> Exchange code via /api/oauth/mobile
     if (typeof window !== "undefined" && window.location?.origin) {
       return `${window.location.origin}/oauth/callback`;
     }
