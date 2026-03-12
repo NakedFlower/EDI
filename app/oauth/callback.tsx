@@ -4,7 +4,7 @@ import * as Auth from "@/lib/_core/auth";
 import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Text } from "react-native";
+import { ActivityIndicator, Platform, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function OAuthCallback() {
@@ -34,6 +34,10 @@ export default function OAuthCallback() {
         if (params.sessionToken) {
           console.log("[OAuth] Session token found in params (web callback)");
           await Auth.setSessionToken(params.sessionToken);
+          if (Platform.OS === "web") {
+            const ok = await Api.establishSession(params.sessionToken);
+            console.log("[OAuth] establishSession from params:", ok ? "success" : "failed");
+          }
 
           // Decode and store user info if available
           if (params.user) {
@@ -153,6 +157,10 @@ export default function OAuthCallback() {
         if (sessionToken) {
           console.log("[OAuth] Session token found in URL, storing...");
           await Auth.setSessionToken(sessionToken);
+          if (Platform.OS === "web") {
+            const ok = await Api.establishSession(sessionToken);
+            console.log("[OAuth] establishSession from URL:", ok ? "success" : "failed");
+          }
           console.log("[OAuth] Session token stored successfully");
           // User info is already in the OAuth callback response
           // No need to fetch from API
@@ -190,6 +198,10 @@ export default function OAuthCallback() {
           console.log("[OAuth] Session token received, storing...");
           // Store session token
           await Auth.setSessionToken(result.sessionToken);
+          if (Platform.OS === "web") {
+            const ok = await Api.establishSession(result.sessionToken);
+            console.log("[OAuth] establishSession from exchange:", ok ? "success" : "failed");
+          }
           console.log("[OAuth] Session token stored successfully");
 
           // Store user info if available
