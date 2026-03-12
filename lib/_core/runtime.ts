@@ -1,22 +1,15 @@
 /**
- * Manus Runtime - Communication layer between Expo web app and parent container (next-agent-webapp)
- *
- * Simplified flow:
- * 1. initManusRuntime() called
- * 2. Send 'appDevServerReady' to parent to signal app is ready
- *
- * User will manually login via the app's login page - no automatic cookie injection.
+ * Runtime bridge between Expo web app and parent preview container.
  */
 
 import { Platform } from "react-native";
 import type { Metrics } from "react-native-safe-area-context";
 
-// Debug logging with timestamps
 const DEBUG = true;
 const log = (msg: string) => {
   if (!DEBUG) return;
   const ts = new Date().toISOString();
-  console.log(`[ManusRuntime ${ts}] ${msg}`);
+  console.log(`[AppRuntime ${ts}] ${msg}`);
 };
 
 type MessageType = "appDevServerReady";
@@ -47,7 +40,6 @@ function isWeb(): boolean {
 }
 
 function sendToParent(type: MessageType, payload: Record<string, unknown> = {}): void {
-  // NOTE: Validate parent origin if we need to transfer sensitive data
   if (!isWeb() || !isInIframe()) return;
 
   const message: SpacePreviewerMessage = {
@@ -71,7 +63,6 @@ function isValidInsets(payload: Record<string, unknown>): payload is SafeAreaIns
 }
 
 function handleMessage(event: MessageEvent<unknown>): void {
-  // NOTE: Validate event.origin if we need to transfer sensitive data
   const data = event.data as SpacePreviewerMessage | undefined;
   if (!data || data.type !== "SpacePreviewerChannel") return;
 
@@ -88,9 +79,6 @@ function handleMessage(event: MessageEvent<unknown>): void {
   }
 }
 
-/**
- * Subscribe to safe area updates from the parent container.
- */
 export function subscribeSafeAreaInsets(callback: SafeAreaCallback): () => void {
   safeAreaCallback = callback;
   return () => {
@@ -100,22 +88,16 @@ export function subscribeSafeAreaInsets(callback: SafeAreaCallback): () => void 
   };
 }
 
-/**
- * Initialize Manus Runtime - just notifies parent that app is ready
- */
-export function initManusRuntime(): void {
+export function initAppRuntime(): void {
   if (!isWeb() || !isInIframe()) return;
   if (initialized) return;
   initialized = true;
 
-  log("initManusRuntime called");
+  log("initAppRuntime called");
   window.addEventListener("message", handleMessage);
   sendToParent("appDevServerReady", {});
 }
 
-/**
- * Check if running inside preview iframe
- */
 export function isRunningInPreviewIframe(): boolean {
   return isWeb() && isInIframe();
 }

@@ -1,7 +1,6 @@
 import type { CookieOptions, Request } from "express";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
-const DISALLOWED_PARENT_COOKIE_DOMAINS = new Set(["vercel.app", "now.sh"]);
 
 function isIpAddress(host: string) {
   // Basic IPv4 check and IPv6 presence detection.
@@ -22,7 +21,7 @@ function isSecureRequest(req: Request) {
 
 /**
  * Extract parent domain for cookie sharing across subdomains.
- * e.g., "3000-xxx.manuspre.computer" -> ".manuspre.computer"
+ * e.g., "3000-xxx.example.com" -> ".example.com"
  * This allows cookies set by 3000-xxx to be read by 8081-xxx
  */
 function getParentDomain(hostname: string): string | undefined {
@@ -35,19 +34,13 @@ function getParentDomain(hostname: string): string | undefined {
   const parts = hostname.split(".");
   const registrableRoot = parts.slice(-2).join(".");
 
-  // Some hosting domains are public suffix-like and reject parent-domain cookies.
-  // Example: setting "Domain=.vercel.app" is ignored by browsers.
-  if (DISALLOWED_PARENT_COOKIE_DOMAINS.has(registrableRoot)) {
-    return undefined;
-  }
-
-  // Need at least 3 parts for a subdomain (e.g., "3000-xxx.manuspre.computer")
-  // For "manuspre.computer", we can't set a parent domain
+  // Need at least 3 parts for a subdomain (e.g., "3000-xxx.example.com")
+  // For "example.com", we can't set a parent domain
   if (parts.length < 3) {
     return undefined;
   }
 
-  // Return parent domain with leading dot (e.g., ".manuspre.computer")
+  // Return parent domain with leading dot (e.g., ".example.com")
   // This allows cookie to be shared across all subdomains
   return "." + registrableRoot;
 }

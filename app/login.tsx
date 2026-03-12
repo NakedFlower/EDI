@@ -1,18 +1,85 @@
-import { Text, View, Pressable, StyleSheet, Platform } from "react-native";
+import { Text, View, Pressable, StyleSheet, Platform, TextInput, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
-import { startOAuthLogin, type LoginMethod } from "@/constants/oauth";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
+import { useState } from "react";
+import { firebaseAuth } from "@/lib/firebase";
+import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import * as Auth from "@/lib/_core/auth";
+import * as Api from "@/lib/_core/api";
 
 export default function LoginScreen() {
   const colors = useColors();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleLogin = async (method: LoginMethod) => {
+  const completeSignIn = async () => {
+    const currentUser = firebaseAuth.currentUser;
+    if (!currentUser) {
+      throw new Error("Firebase user is missing");
+    }
+
+    const idToken = await currentUser.getIdToken(true);
+    await Auth.setSessionToken(idToken);
+    if (Platform.OS === "web") {
+      await Api.establishSession(idToken);
+    }
+    const me = await Api.getMe();
+    if (me) {
+      await Auth.setUserInfo({
+        id: me.id,
+        openId: me.openId,
+        name: me.name,
+        email: me.email,
+        loginMethod: me.loginMethod,
+        lastSignedIn: new Date(me.lastSignedIn),
+      });
+    }
+  };
+
+  const handleEmailLogin = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert("로그인 실패", "이메일과 비밀번호를 입력해주세요.");
+      return;
+    }
+
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    await startOAuthLogin(method);
+
+    try {
+      setSubmitting(true);
+      await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
+      await completeSignIn();
+      router.replace("/(tabs)");
+    } catch (error) {
+      console.error("[Login] Email sign-in failed:", error);
+      Alert.alert("로그인 실패", "이메일/비밀번호를 확인해주세요.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    if (Platform.OS !== "web") {
+      Alert.alert("안내", "Google 로그인을 사용하려면 웹에서 접속해주세요.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(firebaseAuth, provider);
+      await completeSignIn();
+      router.replace("/(tabs)");
+    } catch (error) {
+      console.error("[Login] Google sign-in failed:", error);
+      Alert.alert("로그인 실패", "Google 로그인에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -26,59 +93,59 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.methodList}>
+          <View style={styles.formGroup}>
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="이메일"
+              placeholderTextColor={colors.muted}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              style={[
+                styles.input,
+                { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground },
+              ]}
+            />
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="비밀번호"
+              placeholderTextColor={colors.muted}
+              secureTextEntry
+              style={[
+                styles.input,
+                { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground },
+              ]}
+            />
+          </View>
+
           <Pressable
-            onPress={() => handleLogin("google")}
+            disabled={submitting}
+            onPress={handleEmailLogin}
             style={({ pressed }) => [
               styles.methodButton,
               { backgroundColor: colors.surface, borderColor: colors.border },
-              pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 },
+              (pressed || submitting) && { transform: [{ scale: 0.97 }], opacity: 0.9 },
             ]}
           >
             <View style={styles.methodContent}>
-              <Text style={[styles.methodTitle, { color: colors.foreground }]}>Google로 로그인</Text>
-              <Text style={[styles.methodCaption, { color: colors.muted }]}>구글 계정으로 빠르게 시작</Text>
+              <Text style={[styles.methodTitle, { color: colors.foreground }]}>이메일/비밀번호 로그인</Text>
+              <Text style={[styles.methodCaption, { color: colors.muted }]}>Firebase Authentication 사용</Text>
             </View>
           </Pressable>
 
           <Pressable
-            onPress={() => handleLogin("naver")}
+            disabled={submitting}
+            onPress={handleGoogleLogin}
             style={({ pressed }) => [
               styles.methodButton,
               { backgroundColor: colors.surface, borderColor: colors.border },
-              pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 },
+              (pressed || submitting) && { transform: [{ scale: 0.97 }], opacity: 0.9 },
             ]}
           >
             <View style={styles.methodContent}>
-              <Text style={[styles.methodTitle, { color: colors.foreground }]}>Naver로 로그인</Text>
-              <Text style={[styles.methodCaption, { color: colors.muted }]}>네이버 계정으로 로그인</Text>
-            </View>
-          </Pressable>
-
-          <Pressable
-            onPress={() => handleLogin("kakao")}
-            style={({ pressed }) => [
-              styles.methodButton,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 },
-            ]}
-          >
-            <View style={styles.methodContent}>
-              <Text style={[styles.methodTitle, { color: colors.foreground }]}>Kakao로 로그인</Text>
-              <Text style={[styles.methodCaption, { color: colors.muted }]}>카카오 계정으로 로그인</Text>
-            </View>
-          </Pressable>
-
-          <Pressable
-            onPress={() => handleLogin("email")}
-            style={({ pressed }) => [
-              styles.methodButton,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-              pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 },
-            ]}
-          >
-            <View style={styles.methodContent}>
-              <Text style={[styles.methodTitle, { color: colors.foreground }]}>일반 로그인</Text>
-              <Text style={[styles.methodCaption, { color: colors.muted }]}>이메일/비밀번호로 로그인</Text>
+              <Text style={[styles.methodTitle, { color: colors.foreground }]}>Google 로그인</Text>
+              <Text style={[styles.methodCaption, { color: colors.muted }]}>웹에서만 지원됩니다</Text>
             </View>
           </Pressable>
 
@@ -117,6 +184,16 @@ const styles = StyleSheet.create({
   methodList: {
     gap: 12,
     width: "100%",
+  },
+  formGroup: {
+    gap: 10,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 15,
   },
   methodButton: {
     width: "100%",

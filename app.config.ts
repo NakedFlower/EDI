@@ -2,11 +2,11 @@
 import "./scripts/load-env.js";
 import type { ExpoConfig } from "expo/config";
 
-// Bundle ID format: space.manus.<project_name_dots>.<timestamp>
-// e.g., "my-app" created at 2024-01-15 10:30:45 -> "space.manus.my.app.t20240115103045"
+// Bundle ID format: com.ideavault.<project_name_dots>.<timestamp>
+// e.g., "my-app" created at 2024-01-15 10:30:45 -> "com.ideavault.my.app.t20240115103045"
 // Bundle ID can only contain letters, numbers, and dots
 // Android requires each dot-separated segment to start with a letter
-const rawBundleId = "space.manus.ideavault.t20260307233847";
+const rawBundleId = "com.ideavault.ideavault.t20260307233847";
 const bundleId =
   rawBundleId
     .replace(/[-_]/g, ".") // Replace hyphens/underscores with dots
@@ -20,11 +20,11 @@ const bundleId =
       // Prefix with 'x' if segment starts with a digit
       return /^[a-zA-Z]/.test(segment) ? segment : "x" + segment;
     })
-    .join(".") || "space.manus.app";
-// Extract timestamp from bundle ID and prefix with "manus" for deep link scheme
-// e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"
+    .join(".") || "com.ideavault.app";
+// Extract timestamp from bundle ID and prefix with "ideavault" for deep link scheme
+// e.g., "com.ideavault.my.app.t20240115103045" -> "ideavault20240115103045"
 const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
-const schemeFromBundleId = `manus${timestamp}`;
+const schemeFromBundleId = `ideavault${timestamp}`;
 
 const env = {
   // App branding - update these values directly (do not use env vars)

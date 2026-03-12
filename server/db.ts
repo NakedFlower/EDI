@@ -1,295 +1,339 @@
-import { eq, desc, and, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
-import {
-  InsertUser,
-  users,
-  ideas,
-  InsertIdea,
-  conversations,
-  InsertConversation,
-  messages,
-  InsertMessage,
-  comments,
-  InsertComment,
-  ideaHistory,
-  InsertIdeaHistory,
-} from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { adminDb } from "./_core/firebase-admin";
 
-let _db: ReturnType<typeof drizzle> | null = null;
-let _pool: Pool | null = null;
+type Role = "user" | "admin";
+type MessageRole = "user" | "assistant";
+type IdeaChangeType = "edit" | "ai_session" | "privacy_change" | "created";
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
+export type User = {
+  id: number;
+  openId: string;
+  name: string | null;
+  email: string | null;
+  loginMethod: string | null;
+  role: Role;
+  createdAt: Date;
+  updatedAt: Date;
+  lastSignedIn: Date;
+};
+
+export type InsertUser = Partial<Omit<User, "id" | "createdAt" | "updatedAt">> & {
+  openId: string;
+};
+
+export type Idea = {
+  id: number;
+  userId: number;
+  title: string;
+  description: string | null;
+  problem: string | null;
+  targetUsers: string | null;
+  solution: string | null;
+  notes: string | null;
+  isPublic: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type InsertIdea = Omit<Idea, "id" | "createdAt" | "updatedAt"> &
+  Partial<Pick<Idea, "createdAt" | "updatedAt">>;
+
+export type Conversation = {
+  id: number;
+  ideaId: number;
+  userId: number;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type InsertConversation = Omit<Conversation, "id" | "createdAt" | "updatedAt"> &
+  Partial<Pick<Conversation, "createdAt" | "updatedAt">>;
+
+export type Message = {
+  id: number;
+  conversationId: number;
+  role: MessageRole;
+  content: string;
+  createdAt: Date;
+};
+
+export type InsertMessage = Omit<Message, "id" | "createdAt"> & Partial<Pick<Message, "createdAt">>;
+
+export type Comment = {
+  id: number;
+  ideaId: number;
+  userId: number;
+  content: string;
+  createdAt: Date;
+};
+
+export type InsertComment = Omit<Comment, "id" | "createdAt"> & Partial<Pick<Comment, "createdAt">>;
+
+export type IdeaHistory = {
+  id: number;
+  ideaId: number;
+  userId: number;
+  changeType: IdeaChangeType;
+  changeSummary: string | null;
+  previousData?: unknown;
+  createdAt: Date;
+};
+
+export type InsertIdeaHistory = Omit<IdeaHistory, "id" | "createdAt"> &
+  Partial<Pick<IdeaHistory, "createdAt">>;
+
+const countersRef = adminDb.collection("_meta").doc("counters");
+
+const toDate = (value: any): Date => {
+  if (!value) return new Date();
+  if (value instanceof Date) return value;
+  if (typeof value?.toDate === "function") return value.toDate();
+  return new Date(value);
+};
+
+async function nextId(counterName: string): Promise<number> {
+  return adminDb.runTransaction(async (tx) => {
+    const snap = await tx.get(countersRef);
+    const current = (snap.data()?.[counterName] as number | undefined) ?? 0;
+    const next = current + 1;
+    tx.set(countersRef, { [counterName]: next }, { merge: true });
+    return next;
+  });
+}
+
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    try {
-      _pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        max: 1,
-      });
-      _db = drizzle(_pool);
-    } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
-      _db = null;
-      _pool = null;
-    }
-  }
-  return _db;
+  return adminDb;
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
-  if (!user.openId) {
-    throw new Error("User openId is required for upsert");
-  }
+  const query = await adminDb.collection("users").where("openId", "==", user.openId).limit(1).get();
+  const now = new Date();
+  const role: Role = user.role ?? (user.openId === ENV.ownerOpenId ? "admin" : "user");
 
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot upsert user: database not available");
+  if (query.empty) {
+    const id = await nextId("users");
+    await adminDb.collection("users").doc(String(id)).set({
+      id,
+      openId: user.openId,
+      name: user.name ?? null,
+      email: user.email ?? null,
+      loginMethod: user.loginMethod ?? null,
+      role,
+      createdAt: now,
+      updatedAt: now,
+      lastSignedIn: user.lastSignedIn ?? now,
+    });
     return;
   }
 
-  try {
-    const values: InsertUser = {
-      openId: user.openId,
-    };
-    const updateSet: Record<string, unknown> = {};
-
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
-
-    const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      updateSet[field] = normalized;
-    };
-
-    textFields.forEach(assignNullable);
-
-    if (user.lastSignedIn !== undefined) {
-      values.lastSignedIn = user.lastSignedIn;
-      updateSet.lastSignedIn = user.lastSignedIn;
-    }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      values.role = "admin";
-      updateSet.role = "admin";
-    }
-
-    if (!values.lastSignedIn) {
-      values.lastSignedIn = new Date();
-    }
-
-    if (Object.keys(updateSet).length === 0) {
-      updateSet.lastSignedIn = new Date();
-    }
-    updateSet.updatedAt = new Date();
-
-    await db.insert(users).values(values).onConflictDoUpdate({
-      target: users.openId,
-      set: updateSet,
-    });
-  } catch (error) {
-    console.error("[Database] Failed to upsert user:", error);
-    throw error;
-  }
+  const doc = query.docs[0];
+  await doc.ref.set(
+    {
+      name: user.name ?? null,
+      email: user.email ?? null,
+      loginMethod: user.loginMethod ?? null,
+      role,
+      updatedAt: now,
+      lastSignedIn: user.lastSignedIn ?? now,
+    },
+    { merge: true },
+  );
 }
 
-export async function getUserByOpenId(openId: string) {
-  const db = await getDb();
-  if (!db) {
-    console.warn("[Database] Cannot get user: database not available");
-    return undefined;
-  }
-
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
-  return result.length > 0 ? result[0] : undefined;
+export async function getUserByOpenId(openId: string): Promise<User | undefined> {
+  const snap = await adminDb.collection("users").where("openId", "==", openId).limit(1).get();
+  if (snap.empty) return undefined;
+  const raw = snap.docs[0].data();
+  return {
+    ...raw,
+    createdAt: toDate(raw.createdAt),
+    updatedAt: toDate(raw.updatedAt),
+    lastSignedIn: toDate(raw.lastSignedIn),
+  } as User;
 }
 
-// ─── Idea Queries ────────────────────────────────────────────────────
-
-export async function getUserIdeas(userId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(ideas).where(eq(ideas.userId, userId)).orderBy(desc(ideas.updatedAt));
+export async function getUserById(userId: number): Promise<User | undefined> {
+  const snap = await adminDb.collection("users").doc(String(userId)).get();
+  if (!snap.exists) return undefined;
+  const raw = snap.data()!;
+  return {
+    ...raw,
+    createdAt: toDate(raw.createdAt),
+    updatedAt: toDate(raw.updatedAt),
+    lastSignedIn: toDate(raw.lastSignedIn),
+  } as User;
 }
 
-export async function getIdeaById(ideaId: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(ideas).where(eq(ideas.id, ideaId)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
-}
-
-export async function createIdea(data: InsertIdea) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const [result] = await db.insert(ideas).values(data).returning({ id: ideas.id });
-  return result.id;
-}
-
-export async function updateIdea(id: number, data: Partial<InsertIdea>) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db
-    .update(ideas)
-    .set({
-      ...data,
-      updatedAt: new Date(),
+export async function getUserIdeas(userId: number): Promise<Idea[]> {
+  const snap = await adminDb.collection("ideas").where("userId", "==", userId).get();
+  return snap.docs
+    .map((doc) => {
+      const raw = doc.data();
+      return { ...raw, createdAt: toDate(raw.createdAt), updatedAt: toDate(raw.updatedAt) } as Idea;
     })
-    .where(eq(ideas.id, id));
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 }
 
-export async function deleteIdea(id: number) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.delete(comments).where(eq(comments.ideaId, id));
-  await db.delete(ideaHistory).where(eq(ideaHistory.ideaId, id));
-  const convos = await db.select({ id: conversations.id }).from(conversations).where(eq(conversations.ideaId, id));
-  for (const c of convos) {
-    await db.delete(messages).where(eq(messages.conversationId, c.id));
+export async function getIdeaById(ideaId: number): Promise<Idea | undefined> {
+  const snap = await adminDb.collection("ideas").doc(String(ideaId)).get();
+  if (!snap.exists) return undefined;
+  const raw = snap.data()!;
+  return { ...raw, createdAt: toDate(raw.createdAt), updatedAt: toDate(raw.updatedAt) } as Idea;
+}
+
+export async function createIdea(data: InsertIdea): Promise<number> {
+  const id = await nextId("ideas");
+  const now = new Date();
+  await adminDb.collection("ideas").doc(String(id)).set({
+    id,
+    ...data,
+    createdAt: data.createdAt ?? now,
+    updatedAt: data.updatedAt ?? now,
+  });
+  return id;
+}
+
+export async function updateIdea(id: number, data: Partial<InsertIdea>): Promise<void> {
+  await adminDb.collection("ideas").doc(String(id)).set({ ...data, updatedAt: new Date() }, { merge: true });
+}
+
+export async function deleteIdea(id: number): Promise<void> {
+  const [commentSnap, historySnap, convoSnap] = await Promise.all([
+    adminDb.collection("comments").where("ideaId", "==", id).get(),
+    adminDb.collection("ideaHistory").where("ideaId", "==", id).get(),
+    adminDb.collection("conversations").where("ideaId", "==", id).get(),
+  ]);
+
+  const batch = adminDb.batch();
+  commentSnap.docs.forEach((d) => batch.delete(d.ref));
+  historySnap.docs.forEach((d) => batch.delete(d.ref));
+
+  for (const convo of convoSnap.docs) {
+    const convoId = convo.data().id as number;
+    const msgSnap = await adminDb.collection("messages").where("conversationId", "==", convoId).get();
+    msgSnap.docs.forEach((m) => batch.delete(m.ref));
+    batch.delete(convo.ref);
   }
-  await db.delete(conversations).where(eq(conversations.ideaId, id));
-  await db.delete(ideas).where(eq(ideas.id, id));
+
+  batch.delete(adminDb.collection("ideas").doc(String(id)));
+  await batch.commit();
 }
 
 export async function getPublicIdeas() {
-  const db = await getDb();
-  if (!db) return [];
-  return db
-    .select({
-      id: ideas.id,
-      userId: ideas.userId,
-      title: ideas.title,
-      description: ideas.description,
-      problem: ideas.problem,
-      targetUsers: ideas.targetUsers,
-      solution: ideas.solution,
-      notes: ideas.notes,
-      isPublic: ideas.isPublic,
-      createdAt: ideas.createdAt,
-      updatedAt: ideas.updatedAt,
-      authorName: users.name,
+  const ideasSnap = await adminDb.collection("ideas").where("isPublic", "==", true).get();
+  const items = ideasSnap.docs.map((doc) => {
+    const raw = doc.data();
+    return { ...raw, createdAt: toDate(raw.createdAt), updatedAt: toDate(raw.updatedAt) } as Idea;
+  });
+
+  const result = [] as Array<Idea & { authorName: string | null }>;
+  for (const idea of items) {
+    const author = await getUserById(idea.userId);
+    result.push({ ...idea, authorName: author?.name ?? null });
+  }
+  return result.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+}
+
+export async function getOrCreateConversation(ideaId: number, userId: number): Promise<Conversation> {
+  const snap = await adminDb
+    .collection("conversations")
+    .where("ideaId", "==", ideaId)
+    .where("userId", "==", userId)
+    .limit(1)
+    .get();
+
+  if (!snap.empty) {
+    const raw = snap.docs[0].data();
+    return { ...raw, createdAt: toDate(raw.createdAt), updatedAt: toDate(raw.updatedAt) } as Conversation;
+  }
+
+  const id = await nextId("conversations");
+  const now = new Date();
+  const conversation: Conversation = { id, ideaId, userId, createdAt: now, updatedAt: now };
+  await adminDb.collection("conversations").doc(String(id)).set(conversation);
+  return conversation;
+}
+
+export async function getConversationMessages(conversationId: number): Promise<Message[]> {
+  const snap = await adminDb.collection("messages").where("conversationId", "==", conversationId).get();
+  return snap.docs
+    .map((doc) => {
+      const raw = doc.data();
+      return { ...raw, createdAt: toDate(raw.createdAt) } as Message;
     })
-    .from(ideas)
-    .leftJoin(users, eq(ideas.userId, users.id))
-    .where(eq(ideas.isPublic, true))
-    .orderBy(desc(ideas.updatedAt));
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 }
 
-// ─── Conversation Queries ────────────────────────────────────────────
-
-export async function getOrCreateConversation(ideaId: number, userId: number) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const existing = await db
-    .select()
-    .from(conversations)
-    .where(and(eq(conversations.ideaId, ideaId), eq(conversations.userId, userId)))
-    .orderBy(desc(conversations.updatedAt))
-    .limit(1);
-  if (existing.length > 0) return existing[0];
-  const [result] = await db
-    .insert(conversations)
-    .values({ ideaId, userId })
-    .returning({ id: conversations.id });
-  const created = await db.select().from(conversations).where(eq(conversations.id, result.id)).limit(1);
-  return created[0];
+export async function addMessage(data: InsertMessage): Promise<number> {
+  const id = await nextId("messages");
+  await adminDb.collection("messages").doc(String(id)).set({
+    id,
+    ...data,
+    createdAt: data.createdAt ?? new Date(),
+  });
+  await adminDb.collection("conversations").doc(String(data.conversationId)).set({ updatedAt: new Date() }, { merge: true });
+  return id;
 }
-
-export async function getConversationMessages(conversationId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(messages.createdAt);
-}
-
-export async function addMessage(data: InsertMessage) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const [result] = await db.insert(messages).values(data).returning({ id: messages.id });
-  await db.update(conversations).set({ updatedAt: new Date() }).where(eq(conversations.id, data.conversationId));
-  return result.id;
-}
-
-// ─── Comment Queries ─────────────────────────────────────────────────
 
 export async function getIdeaComments(ideaId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db
-    .select({
-      id: comments.id,
-      ideaId: comments.ideaId,
-      userId: comments.userId,
-      content: comments.content,
-      createdAt: comments.createdAt,
-      authorName: users.name,
+  const snap = await adminDb.collection("comments").where("ideaId", "==", ideaId).get();
+  const comments = snap.docs
+    .map((doc) => {
+      const raw = doc.data();
+      return { ...raw, createdAt: toDate(raw.createdAt) } as Comment;
     })
-    .from(comments)
-    .leftJoin(users, eq(comments.userId, users.id))
-    .where(eq(comments.ideaId, ideaId))
-    .orderBy(desc(comments.createdAt));
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  const result = [] as Array<Comment & { authorName: string | null }>;
+  for (const comment of comments) {
+    const author = await getUserById(comment.userId);
+    result.push({ ...comment, authorName: author?.name ?? null });
+  }
+  return result;
 }
 
-export async function addComment(data: InsertComment) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const [result] = await db.insert(comments).values(data).returning({ id: comments.id });
-  return result.id;
+export async function addComment(data: InsertComment): Promise<number> {
+  const id = await nextId("comments");
+  await adminDb.collection("comments").doc(String(id)).set({
+    id,
+    ...data,
+    createdAt: data.createdAt ?? new Date(),
+  });
+  return id;
 }
 
-// ─── Idea History Queries ────────────────────────────────────────────
-
-export async function getIdeaHistory(ideaId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(ideaHistory).where(eq(ideaHistory.ideaId, ideaId)).orderBy(desc(ideaHistory.createdAt));
+export async function getIdeaHistory(ideaId: number): Promise<IdeaHistory[]> {
+  const snap = await adminDb.collection("ideaHistory").where("ideaId", "==", ideaId).get();
+  return snap.docs
+    .map((doc) => {
+      const raw = doc.data();
+      return { ...raw, createdAt: toDate(raw.createdAt) } as IdeaHistory;
+    })
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
-export async function addIdeaHistory(data: InsertIdeaHistory) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const [result] = await db.insert(ideaHistory).values(data).returning({ id: ideaHistory.id });
-  return result.id;
+export async function addIdeaHistory(data: InsertIdeaHistory): Promise<number> {
+  const id = await nextId("ideaHistory");
+  await adminDb.collection("ideaHistory").doc(String(id)).set({
+    id,
+    ...data,
+    createdAt: data.createdAt ?? new Date(),
+  });
+  return id;
 }
 
-export async function getCommentCount(ideaId: number) {
-  const db = await getDb();
-  if (!db) return 0;
-  const result = await db.select({ count: sql<number>`count(*)` }).from(comments).where(eq(comments.ideaId, ideaId));
-  return result[0]?.count ?? 0;
+export async function getCommentCount(ideaId: number): Promise<number> {
+  const snap = await adminDb.collection("comments").where("ideaId", "==", ideaId).get();
+  return snap.size;
 }
 
 export async function getUserIdeaCommentCounts(userId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  const userIdeas = await db
-    .select({ id: ideas.id })
-    .from(ideas)
-    .where(and(eq(ideas.userId, userId), eq(ideas.isPublic, true)));
-  if (userIdeas.length === 0) return [];
+  const ideas = await getUserIdeas(userId);
+  const publicIdeas = ideas.filter((idea) => idea.isPublic);
   const results: { ideaId: number; count: number }[] = [];
-  for (const idea of userIdeas) {
-    const countResult = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(comments)
-      .where(eq(comments.ideaId, idea.id));
-    const count = countResult[0]?.count ?? 0;
-    if (count > 0) {
-      results.push({ ideaId: idea.id, count });
-    }
+  for (const idea of publicIdeas) {
+    const count = await getCommentCount(idea.id);
+    if (count > 0) results.push({ ideaId: idea.id, count });
   }
   return results;
-}
-
-export async function getUserById(userId: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
 }
