@@ -43,9 +43,6 @@ export function getApiBaseUrl(): string {
         if (OAUTH_SERVER_URL) {
           return normalize(OAUTH_SERVER_URL);
         }
-        if (OAUTH_PORTAL_URL) {
-          return normalize(OAUTH_PORTAL_URL);
-        }
       }
     }
 
@@ -54,10 +51,6 @@ export function getApiBaseUrl(): string {
 
   if (OAUTH_SERVER_URL) {
     return normalize(OAUTH_SERVER_URL);
-  }
-
-  if (OAUTH_PORTAL_URL) {
-    return normalize(OAUTH_PORTAL_URL);
   }
 
   // On web, derive from current hostname by replacing port 8081 with 3000
