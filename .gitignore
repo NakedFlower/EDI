@@ -64,3 +64,7 @@ Thumbs.db
 
 # Webdev artifacts (checkpoint zips, migrations, etc.)
 .webdev/
+
+# Firebase configuration files (contains sensitive API keys)
+google-services.json
+GoogleService-Info.plist
