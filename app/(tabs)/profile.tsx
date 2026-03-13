@@ -81,9 +81,7 @@ export default function ProfileScreen() {
             <IconSymbol name="person.fill" size={40} color={colors.primary} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>프로필</Text>
-          <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-            로그인하여 프로필과 설정에 접근하세요
-          </Text>
+
           <Pressable
             onPress={() => setShowAuthModal(true)}
             style={({ pressed }) => [
