@@ -50,6 +50,7 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
+    googleServicesFile: "./GoogleService-Info.plist",
     "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -65,6 +66,7 @@ const config: ExpoConfig = {
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
     permissions: ["POST_NOTIFICATIONS"],
+    googleServicesFile: "./google-services.json",
     intentFilters: [
       {
         action: "VIEW",

@@ -93,9 +93,25 @@ export async function apiCall<T>(endpoint: string, options: RequestInit = {}): P
 
 // Logout
 export async function logout(): Promise<void> {
-  await apiCall<void>("/api/auth/logout", {
-    method: "POST",
-  });
+  try {
+    const baseUrl = getApiBaseUrl();
+    const url = `${baseUrl}/api/auth/logout`;
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      console.error("[API] Logout failed:", response.status);
+    }
+  } catch (error) {
+    console.error("[API] Logout error:", error);
+    // Continue with logout even if API call fails
+  }
 }
 
 // Get current authenticated user (web uses cookie-based auth)

@@ -18,11 +18,13 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
+import { AuthModal } from "@/app/auth-modal";
 
 export default function HomeScreen() {
   const colors = useColors();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const {
     data: ideas,
@@ -86,30 +88,51 @@ export default function HomeScreen() {
     );
   }
 
+  const handleNewIdea = () => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    router.push("/new-idea");
+  };
+
   if (!isAuthenticated) {
     return (
-      <ScreenContainer className="px-6">
+      <ScreenContainer className="px-0">
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <View>
+            <Text style={[styles.headerTitle, { color: colors.foreground }]}>아이디어 창고</Text>
+          </View>
+        </View>
+        
         <View style={styles.centered}>
           <View style={[styles.emptyIcon, { backgroundColor: colors.primary + "15" }]}>
             <IconSymbol name="lightbulb.fill" size={48} color={colors.primary} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-            EDI에 오신 것을 환영합니다
+            나만의 아이디어를 기록하세요
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-            비즈니스 아이디어를 기록하고 발전시켜 보세요
+            AI 멘토와 함께{"\n"}아이디어를 구체화할 수 있습니다
           </Text>
-          <Pressable
-            onPress={() => router.push("/login")}
-            style={({ pressed }) => [
-              styles.signInButton,
-              { backgroundColor: colors.primary },
-              pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 },
-            ]}
-          >
-            <Text style={styles.signInButtonText}>로그인</Text>
-          </Pressable>
         </View>
+
+        <Pressable
+          onPress={handleNewIdea}
+          style={({ pressed }) => [
+            styles.fab,
+            { backgroundColor: colors.primary },
+            pressed && { transform: [{ scale: 0.9 }] },
+          ]}
+        >
+          <IconSymbol name="plus" size={28} color="#FFFFFF" />
+        </Pressable>
+
+        <AuthModal 
+          visible={showAuthModal} 
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={() => setShowAuthModal(false)}
+        />
       </ScreenContainer>
     );
   }
@@ -224,7 +247,7 @@ export default function HomeScreen() {
       <Pressable
         onPress={() => {
           if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          router.push("/new-idea");
+          handleNewIdea();
         }}
         style={({ pressed }) => [
           styles.fab,

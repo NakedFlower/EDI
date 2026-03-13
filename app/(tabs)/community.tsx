@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   Text,
   View,
@@ -16,20 +16,31 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
+import { AuthModal } from "@/app/auth-modal";
 
 export default function CommunityScreen() {
   const colors = useColors();
   const { isAuthenticated, loading: authLoading } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const { data: ideas, isLoading, refetch } = trpc.community.feed.useQuery(undefined, {
-    enabled: isAuthenticated,
+    enabled: true,
   });
 
   useFocusEffect(
     useCallback(() => {
-      if (isAuthenticated) refetch();
-    }, [isAuthenticated])
+      refetch();
+    }, [])
   );
+
+  const handleIdeaPress = (ideaId: number) => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/discussion/${ideaId}` as any);
+  };
 
   if (authLoading) {
     return (
@@ -41,31 +52,6 @@ export default function CommunityScreen() {
     );
   }
 
-  if (!isAuthenticated) {
-    return (
-      <ScreenContainer className="px-6">
-        <View style={styles.centered}>
-          <View style={[styles.emptyIcon, { backgroundColor: colors.primary + "15" }]}>
-            <IconSymbol name="person.2.fill" size={40} color={colors.primary} />
-          </View>
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>커뮤니티</Text>
-          <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-            커뮤니티의 공개 아이디어를 탐색하고 토론해 보세요
-          </Text>
-          <Pressable
-            onPress={() => router.push("/login")}
-            style={({ pressed }) => [
-              styles.signInButton,
-              { backgroundColor: colors.primary },
-              pressed && { transform: [{ scale: 0.97 }], opacity: 0.9 },
-            ]}
-          >
-            <Text style={styles.signInButtonText}>로그인</Text>
-          </Pressable>
-        </View>
-      </ScreenContainer>
-    );
-  }
 
   return (
     <ScreenContainer className="px-0">
@@ -73,7 +59,7 @@ export default function CommunityScreen() {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>커뮤니티</Text>
         <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
-          공개된 아이디어를 탐색하고 토론하세요
+          공개된 아이디어를 살펴보세요
         </Text>
       </View>
 
@@ -91,10 +77,8 @@ export default function CommunityScreen() {
           }
           renderItem={({ item }) => (
             <Pressable
-              onPress={() => {
-                if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push(`/discussion/${item.id}` as any);
-              }}
+              key={item.id}
+              onPress={() => handleIdeaPress(item.id)}
               style={({ pressed }) => [
                 styles.ideaCard,
                 { backgroundColor: colors.surface, borderColor: colors.border },
@@ -134,6 +118,12 @@ export default function CommunityScreen() {
           </Text>
         </View>
       )}
+
+      <AuthModal 
+        visible={showAuthModal} 
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={() => setShowAuthModal(false)}
+      />
     </ScreenContainer>
   );
 }

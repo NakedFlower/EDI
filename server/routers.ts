@@ -3,37 +3,8 @@ import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { generateMentorResponse } from "./_core/openai";
 import * as db from "./db";
-
-function buildMentorResponse(message: string, idea: {
-  title: string;
-  problem: string | null;
-  targetUsers: string | null;
-  solution: string | null;
-}) {
-  const normalized = message.trim();
-  const opener = `좋아요. "${idea.title}" 아이디어를 조금 더 날카롭게 다듬어보죠.`;
-
-  const question1 = idea.targetUsers
-    ? `현재 타겟 사용자("${idea.targetUsers}")가 돈 또는 시간을 아낀다고 체감하는 핵심 순간을 한 문장으로 정의할 수 있을까요?`
-    : "가장 먼저 집중할 단일 타겟 사용자군을 한 문장으로 정의해볼까요?";
-
-  const question2 = idea.problem
-    ? `지금 정의한 문제("${idea.problem}")가 실제로 자주 발생한다는 증거를 어떤 방식으로 검증할 계획인가요?`
-    : "이 아이디어가 해결하려는 문제를 '언제, 누구에게, 얼마나 자주 발생하는지'로 구체화해볼까요?";
-
-  const question3 = idea.solution
-    ? `현재 솔루션("${idea.solution}")에서 사용자가 처음 5분 안에 가치를 느끼는 최소 경험(MVP)은 무엇인가요?`
-    : "지금 당장 1주일 안에 만들 수 있는 가장 작은 MVP는 어떤 형태일까요?";
-
-  return [
-    opener,
-    `당신이 방금 말한 내용("${normalized.slice(0, 120)}${normalized.length > 120 ? "..." : ""}")을 기준으로 보면, 아래 2가지를 먼저 검증하면 좋아요:`,
-    `1) ${question1}`,
-    `2) ${question2}`,
-    `추가로, ${question3}`,
-  ].join("\n\n");
-}
 
 const ideaInputSchema = z.object({
   title: z.string().min(1).max(255),
@@ -164,7 +135,7 @@ export const appRouter = router({
   }),
 
   community: router({
-    feed: protectedProcedure.query(async () => {
+    feed: publicProcedure.query(async () => {
       return db.getPublicIdeas();
     }),
 
@@ -214,28 +185,45 @@ export const appRouter = router({
         const idea = await db.getIdeaById(input.ideaId);
         if (!idea || idea.userId !== ctx.user.id) throw new Error("Access denied");
         const conversation = await db.getOrCreateConversation(input.ideaId, ctx.user.id);
+        
         await db.addMessage({
           conversationId: conversation.id,
           role: "user",
           content: input.message,
         });
-        const aiContent = buildMentorResponse(input.message, {
-          title: idea.title,
-          problem: idea.problem,
-          targetUsers: idea.targetUsers,
-          solution: idea.solution,
+
+        const messages = await db.getConversationMessages(conversation.id);
+        const conversationHistory = messages.map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        }));
+
+        const aiContent = await generateMentorResponse({
+          userMessage: input.message,
+          conversationHistory,
+          idea: {
+            title: idea.title,
+            description: idea.description,
+            problem: idea.problem,
+            targetUsers: idea.targetUsers,
+            solution: idea.solution,
+            notes: idea.notes,
+          },
         });
+
         await db.addMessage({
           conversationId: conversation.id,
           role: "assistant",
           content: aiContent,
         });
+        
         await db.addIdeaHistory({
           ideaId: input.ideaId,
           userId: ctx.user.id,
           changeType: "ai_session",
           changeSummary: "AI 멘토링 대화 진행",
         });
+        
         return { response: aiContent };
       }),
   }),

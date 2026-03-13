@@ -15,11 +15,14 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
+import { useState } from "react";
+import { AuthModal } from "@/app/auth-modal";
 
 export default function ProfileScreen() {
   const colors = useColors();
   const { user, isAuthenticated, loading: authLoading, logout } = useAuth();
   const utils = trpc.useUtils();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const { data: ideas } = trpc.ideas.list.useQuery(undefined, {
     enabled: isAuthenticated,
@@ -28,33 +31,36 @@ export default function ProfileScreen() {
   const totalIdeas = ideas?.length ?? 0;
   const publicIdeas = ideas?.filter((i) => i.isPublic).length ?? 0;
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      "로그아웃",
-      "정말 로그아웃 하시겠습니까?",
-      [
-        { text: "취소", style: "cancel" },
-        {
-          text: "로그아웃",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await logout();
-              utils.invalidate();
-              if (Platform.OS === "web") {
-                window.location.reload();
-              }
-            } catch (err) {
-              console.error("[Profile] Logout error:", err);
-              if (Platform.OS === "web") {
-                window.location.reload();
-              }
-            }
-          },
-        },
-      ]
-    );
+    
+    const confirmLogout = Platform.OS === "web" 
+      ? window.confirm("정말 로그아웃 하시겠습니까?")
+      : await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            "로그아웃",
+            "정말 로그아웃 하시겠습니까?",
+            [
+              { text: "취소", style: "cancel", onPress: () => resolve(false) },
+              { text: "로그아웃", style: "destructive", onPress: () => resolve(true) },
+            ]
+          );
+        });
+
+    if (!confirmLogout) return;
+
+    try {
+      await logout();
+      utils.invalidate();
+      if (Platform.OS === "web") {
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error("[Profile] Logout error:", err);
+      if (Platform.OS === "web") {
+        window.location.reload();
+      }
+    }
   };
 
   if (authLoading) {
@@ -79,7 +85,7 @@ export default function ProfileScreen() {
             로그인하여 프로필과 설정에 접근하세요
           </Text>
           <Pressable
-            onPress={() => router.push("/login")}
+            onPress={() => setShowAuthModal(true)}
             style={({ pressed }) => [
               styles.signInButton,
               { backgroundColor: colors.primary },
@@ -89,6 +95,12 @@ export default function ProfileScreen() {
             <Text style={styles.signInButtonText}>로그인</Text>
           </Pressable>
         </View>
+
+        <AuthModal 
+          visible={showAuthModal} 
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={() => setShowAuthModal(false)}
+        />
       </ScreenContainer>
     );
   }
