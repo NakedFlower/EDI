@@ -101,7 +101,7 @@ export default function HomeScreen() {
       <ScreenContainer className="px-0">
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <View>
-            <Text style={[styles.headerTitle, { color: colors.foreground }]}>아이디어 창고</Text>
+            <Text style={[styles.headerTitle, { color: colors.foreground }]}>아이디어 메모장</Text>
           </View>
         </View>
         
@@ -142,7 +142,7 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>내 창고</Text>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>내 메모장</Text>
           <Text style={[styles.headerSubtitle, { color: colors.muted }]}>
             아이디어 {ideas?.length ?? 0}개
           </Text>
@@ -233,7 +233,7 @@ export default function HomeScreen() {
             <IconSymbol name="lightbulb.fill" size={40} color={colors.primary} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-            {searchQuery ? "검색 결과가 없습니다" : "창고가 비어 있습니다"}
+            {searchQuery ? "검색 결과가 없습니다" : "메모장이 비어 있습니다"}
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
             {searchQuery

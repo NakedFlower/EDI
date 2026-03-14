@@ -6,23 +6,8 @@ import type { ExpoConfig } from "expo/config";
 // e.g., "my-app" created at 2024-01-15 10:30:45 -> "com.ideavault.my.app.t20240115103045"
 // Bundle ID can only contain letters, numbers, and dots
 // Android requires each dot-separated segment to start with a letter
-const rawBundleId = "com.ideavault.ideavault.t20260307233847";
-const bundleId =
-  rawBundleId
-    .replace(/[-_]/g, ".") // Replace hyphens/underscores with dots
-    .replace(/[^a-zA-Z0-9.]/g, "") // Remove invalid chars
-    .replace(/\.+/g, ".") // Collapse consecutive dots
-    .replace(/^\.+|\.+$/g, "") // Trim leading/trailing dots
-    .toLowerCase()
-    .split(".")
-    .map((segment) => {
-      // Android requires each segment to start with a letter
-      // Prefix with 'x' if segment starts with a digit
-      return /^[a-zA-Z]/.test(segment) ? segment : "x" + segment;
-    })
-    .join(".") || "com.ideavault.app";
-// Extract timestamp from bundle ID and prefix with "ideavault" for deep link scheme
-// e.g., "com.ideavault.my.app.t20240115103045" -> "ideavault20240115103045"
+const rawBundleId = "com.ghgo.edi";
+const bundleId = rawBundleId;
 const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
 const schemeFromBundleId = `ideavault${timestamp}`;
 
@@ -30,9 +15,7 @@ const env = {
   // App branding - update these values directly (do not use env vars)
   appName: "EDI",
   appSlug: "ideavault",
-  // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
-  // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "https://d2xsxph8kpxj0f.cloudfront.net/310519663247798802/MX4CNmSv5v4gAxpsQCkvdn/edi-icon-MJQjqKaLSJtx7rbyc2FSJC.png",
+  logoUrl: "",
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
@@ -66,7 +49,7 @@ const config: ExpoConfig = {
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
     permissions: ["POST_NOTIFICATIONS"],
-    googleServicesFile: "./google-services.json",
+    googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
     intentFilters: [
       {
         action: "VIEW",
@@ -127,6 +110,11 @@ const config: ExpoConfig = {
     typedRoutes: true,
     reactCompiler: true,
   },
+  extra: {
+    eas: {
+      projectId: "ac4eb8ee-6eef-4069-a25c-7f21ae7b1a0f"
+    }
+  }
 };
 
 export default config;

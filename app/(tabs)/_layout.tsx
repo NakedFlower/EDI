@@ -31,7 +31,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "창고",
+          title: "메모",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={26} name="lightbulb.fill" color={color} />
           ),
